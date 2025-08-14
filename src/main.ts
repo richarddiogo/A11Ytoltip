@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { bootstrapApplication } from '@angular/platform-browser';
 
@@ -8,24 +8,46 @@ import { bootstrapApplication } from '@angular/platform-browser';
   imports: [CommonModule],
   template: `
     <div class="container" #container>
-      <button 
-        *ngFor="let item of calendarData; let i = index"
-        class="trigger-btn"
-        [class.active]="activeTooltip === i"
-        (click)="toggleTooltip(i)"
-        [attr.aria-expanded]="activeTooltip === i"
-        [attr.aria-describedby]="activeTooltip === i ? 'tooltip-content-mes-' + item.mes + '-dia-' + item.dia : null"
-        (keydown.enter)="toggleTooltip(i)"
-        (keydown.space)="toggleTooltip(i)"
-        #triggerButton
-      >
-        {{ item.dia }}
-      </button>
+      <div class="week-names">
+        <div 
+          *ngFor="let week of weekNames" 
+          class="week-name-div"
+          [attr.aria-label]="week.name"
+          role="text"
+          tabindex="-1"
+        >
+          <span aria-hidden="true">{{ week.abbreviation }}</span>
+        </div>
+      </div>
+
+      <div *ngFor="let period of periods; let periodIndex = index" class="period-container">
+        <div *ngFor="let week of period; let weekIndex = index" class="week-days">
+          <span
+            *ngFor="let day of week; let dayIndex = index"
+            class="day-cell"
+            [class.day-used]="day.isDayUsed"
+            [class.day-today]="day.isToday"
+            [class.day-debit]="day.dayOfDebit"
+            (click)="day.isDayUsed ? toggleTooltip(periodIndex, weekIndex, dayIndex) : null"
+            [attr.aria-expanded]="isActiveTooltip(periodIndex, weekIndex, dayIndex)"
+            [attr.aria-describedby]="isActiveTooltip(periodIndex, weekIndex, dayIndex) ? 'tooltip-content-mes-' + day.mes + '-dia-' + day.day : null"
+            [attr.aria-hidden]="day.ariaHidden"
+            [attr.aria-label]="dayAriaLabel(day.day)"
+            [attr.role]="day.isDayUsed ? 'button' : 'text'"
+            [attr.tabindex]="day.isDayUsed ? '0' : '-1'"
+            (keydown.enter)="day.isDayUsed ? toggleTooltip(periodIndex, weekIndex, dayIndex) : null"
+            (keydown.space)="day.isDayUsed ? toggleTooltip(periodIndex, weekIndex, dayIndex) : null"
+          >
+            {{ day.day }}
+            <div *ngIf="day.isToday" class="today-border"></div>
+          </span>
+        </div>
+      </div>
 
       <div 
-        *ngIf="activeTooltip !== null"
+        *ngIf="activeTooltip.periodIndex !== null"
         #tooltipContent
-        [id]="'tooltip-content-mes-' + calendarData[activeTooltip].mes + '-dia-' + calendarData[activeTooltip].dia"
+        [id]="'tooltip-content-mes-' + getActiveDay()?.mes + '-dia-' + getActiveDay()?.day"
         class="tooltip"
         role="dialog"
         [attr.aria-modal]="true"
@@ -48,7 +70,7 @@ import { bootstrapApplication } from '@angular/platform-browser';
         <div class="tooltip-content">
           <div class="info-row">
             <span>Limite habilitado utilizado</span>
-            <span class="value">R$ 90.488,00</span>
+            <span class="value">R$ {{ getActiveDay()?.usedValue?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00' }}</span>
           </div>
           <div class="info-row">
             <span>Utilização acima do limite</span>
@@ -82,7 +104,7 @@ import { bootstrapApplication } from '@angular/platform-browser';
       </div>
 
       <div 
-        *ngIf="activeTooltip !== null" 
+        *ngIf="activeTooltip.periodIndex !== null" 
         class="overlay" 
         (click)="closeTooltip()"
         aria-hidden="true"
@@ -95,31 +117,92 @@ import { bootstrapApplication } from '@angular/platform-browser';
       position: relative;
     }
 
-    .trigger-btn {
+    .week-names {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .week-name-div {
+      width: 40px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+      text-transform: lowercase;
+    }
+
+    .period-container {
+      margin-bottom: 20px;
+    }
+
+    .week-days {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .day-cell {
       width: 40px;
       height: 40px;
-      background: #007bff;
-      color: white;
-      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      color: #666;
       border-radius: 6px;
-      cursor: pointer;
       font-size: 16px;
       font-weight: bold;
       transition: all 0.2s;
       position: relative;
-      margin-right: 10px;
+      cursor: default;
+      user-select: none;
     }
 
-    .trigger-btn:hover {
+    .day-cell.day-used {
+      background: #28a745;
+      color: white;
+      cursor: pointer;
+    }
+
+    .day-cell.day-used:hover {
+      background: #218838;
+    }
+
+    .day-cell.day-today {
+      background: #007bff;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .day-cell.day-today:hover {
       background: #0056b3;
     }
 
-    .trigger-btn.active {
-      background: #0056b3;
+    .day-cell.day-debit {
+      text-decoration: underline;
+    }
+
+    .today-border {
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      border: 2px solid #0056b3;
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    .day-cell[aria-expanded="true"] {
       box-shadow: 0 0 0 2px #80bdff;
     }
 
-    .trigger-btn:focus {
+    .day-cell[role="button"]:focus {
       outline: 2px solid #80bdff;
       outline-offset: 2px;
     }
@@ -255,35 +338,60 @@ export class TooltipComponent implements AfterViewInit {
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
   @ViewChild('closeButton') closeButton!: ElementRef<HTMLButtonElement>;
 
-  // Simulando dados de 2 calendários com mês e dia
-  calendarData = [
-    { mes: 8, dia: 1 },
-    { mes: 8, dia: 2 },
-    { mes: 9, dia: 15 },
-    { mes: 12, dia: 1 }
+  @Input() periods: any[][] = [];
+
+  weekNames: Array<{ name: string; abbreviation: string }> = [
+    { name: 'Domingo', abbreviation: 'dom' },
+    { name: 'Segunda-feira', abbreviation: 'seg' },
+    { name: 'Terça-feira', abbreviation: 'ter' },
+    { name: 'Quarta-feira', abbreviation: 'qua' },
+    { name: 'Quinta-feira', abbreviation: 'qui' },
+    { name: 'Sexta-feira', abbreviation: 'sex' },
+    { name: 'Sábado', abbreviation: 'sáb' }
   ];
-  activeTooltip: number | null = null;
+
+  
+  activeTooltip = { periodIndex: null as number | null, weekIndex: null as number | null, dayIndex: null as number | null };
   tooltipPosition = { top: 0, left: 0 };
-  activeTriggerButton!: ElementRef<HTMLButtonElement>;
+  activeTriggerButton!: ElementRef<HTMLElement>;
 
   ngAfterViewInit() {
     // Componente inicializado, ViewChild disponível
   }
 
-  toggleTooltip(index: number) {
-    if (this.activeTooltip === index) {
+  public toggleTooltip(periodIndex: number, weekIndex: number, dayIndex: number) {
+    if (this.isActiveTooltip(periodIndex, weekIndex, dayIndex)) {
       this.closeTooltip();
     } else {
-      this.openTooltip(index);
+      this.openTooltip(periodIndex, weekIndex, dayIndex);
     }
   }
 
-  openTooltip(index: number) {
-    this.activeTooltip = index;
+  public isActiveTooltip(periodIndex: number, weekIndex: number, dayIndex: number): boolean {
+    return this.activeTooltip.periodIndex === periodIndex && 
+           this.activeTooltip.weekIndex === weekIndex && 
+           this.activeTooltip.dayIndex === dayIndex;
+  }
+
+  public getActiveDay() {
+    if (this.activeTooltip.periodIndex !== null && 
+        this.activeTooltip.weekIndex !== null && 
+        this.activeTooltip.dayIndex !== null) {
+      return this.periods[this.activeTooltip.periodIndex][this.activeTooltip.weekIndex][this.activeTooltip.dayIndex];
+    }
+    return null;
+  }
+
+  public dayAriaLabel(day: number): string {
+    return `Day ${day}`;
+  }
+
+  public openTooltip(periodIndex: number, weekIndex: number, dayIndex: number) {
+    this.activeTooltip = { periodIndex, weekIndex, dayIndex };
     
     // Calcula posição do tooltip
     setTimeout(() => {
-      this.calculateTooltipPosition(index);
+      this.calculateTooltipPosition(periodIndex, weekIndex, dayIndex);
     });
     
     // Focus management
@@ -297,8 +405,8 @@ export class TooltipComponent implements AfterViewInit {
     document.addEventListener('keydown', this.handleEscKey);
   }
 
-  closeTooltip() {
-    this.activeTooltip = null;
+  public closeTooltip() {
+    this.activeTooltip = { periodIndex: null, weekIndex: null, dayIndex: null };
     
     // Remove listener do ESC
     document.removeEventListener('keydown', this.handleEscKey);
@@ -311,9 +419,24 @@ export class TooltipComponent implements AfterViewInit {
     });
   }
 
-  private calculateTooltipPosition(index: number) {
-    const triggerButtons = document.querySelectorAll('.trigger-btn');
-    const currentButton = triggerButtons[index] as HTMLButtonElement;
+  private calculateTooltipPosition(periodIndex: number, weekIndex: number, dayIndex: number) {
+    // Find the correct button within THIS specific tooltip component instance
+    const dayCellsInComponent = this.container.nativeElement.querySelectorAll('.day-cell');
+    
+    // Calculate the correct index for the clicked day
+    let dayIndex_calculated = 0;
+    for (let p = 0; p < periodIndex; p++) {
+      for (let w = 0; w < this.periods[p].length; w++) {
+        dayIndex_calculated += this.periods[p][w].length;
+      }
+    }
+    for (let w = 0; w < weekIndex; w++) {
+      dayIndex_calculated += this.periods[periodIndex][w].length;
+    }
+    dayIndex_calculated += dayIndex;
+    
+    const currentButton = dayCellsInComponent[dayIndex_calculated] as HTMLElement;
+    
     this.activeTriggerButton = new ElementRef(currentButton);
     
     if (!currentButton || !this.tooltipContent?.nativeElement || !this.container?.nativeElement) {
@@ -321,22 +444,11 @@ export class TooltipComponent implements AfterViewInit {
     }
 
     const triggerRect = currentButton.getBoundingClientRect();
-    const tooltipRect = this.tooltipContent.nativeElement.getBoundingClientRect();
     const containerRect = this.container.nativeElement.getBoundingClientRect();
     
-    // Posição inicial: abaixo e à direita do botão
-    let top = triggerRect.bottom - containerRect.top + 8;
-    let left = triggerRect.left - containerRect.left;
-    
-    // Verifica se o tooltip sai da tela à direita
-    if (left + tooltipRect.width > window.innerWidth - 20) {
-      left = triggerRect.right - containerRect.left - tooltipRect.width;
-    }
-    
-    // Verifica se o tooltip sai da tela embaixo
-    if (triggerRect.bottom + tooltipRect.height > window.innerHeight - 20) {
-      top = triggerRect.top - containerRect.top - tooltipRect.height - 8;
-    }
+    // Position tooltip directly below the button
+    const top = triggerRect.bottom - containerRect.top + 8;
+    const left = triggerRect.left - containerRect.left;
     
     this.tooltipPosition = { top, left };
   }
@@ -356,7 +468,18 @@ export class TooltipComponent implements AfterViewInit {
     <div class="app">
       <h1>Tooltip do Bankline</h1>
       <p>Clique no botão "1" para ver o tooltip com as informações:</p>
-      <app-tooltip></app-tooltip>
+      
+      <div class="calendars-container">
+        <div class="calendar-section">
+          <div class="month-title">Mês 8</div>
+          <app-tooltip [periods]="periodsData"></app-tooltip>
+        </div>
+        
+        <div class="calendar-section">
+          <div class="month-title">Mês 9</div>
+          <app-tooltip [periods]="periodsData2"></app-tooltip>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -376,8 +499,109 @@ export class TooltipComponent implements AfterViewInit {
       color: #666;
       margin-bottom: 20px;
     }
+
+    .calendars-container {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .calendar-section {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .month-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .calendars-container {
+        flex-direction: column;
+        gap: 20px;
+      }
+    }
   `]
 })
-export class App {}
+export class App {
+  periodsData: any[][] = [
+    // Período 1 (Agosto)
+    [
+      // Semana 1 de Agosto
+      [
+        { day: 1, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+        { day: 2, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+        { day: 3, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 85420.50, mes: 8, dayOfDebit: false },
+        { day: 4, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 92150.75, mes: 8, dayOfDebit: false },
+        { day: 5, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 78900.25, mes: 8, dayOfDebit: false },
+        { day: 6, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+        { day: 7, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false }
+      ],
+      // Semana 2 de Agosto
+      [
+        { day: 8, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+        { day: 9, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+        { day: 10, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 67890.40, mes: 8, dayOfDebit: false },
+        { day: 11, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+        { day: 12, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+        { day: 13, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+        { day: 14, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 105200.80, mes: 8, dayOfDebit: true }
+      ]
+    ],
+    // Período 2 (Setembro)
+    [
+      // Semana 1 de Setembro
+      [
+        { day: 1, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 2, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 3, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: true, usedValue: 67890.40, mes: 9, dayOfDebit: false },
+        { day: 4, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 5, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 6, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 7, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false }
+      ],
+      // Semana 4 de Setembro (final do mês)
+      [
+        { day: 24, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 112450.90, mes: 9, dayOfDebit: false },
+        { day: 25, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 98750.60, mes: 9, dayOfDebit: false },
+        { day: 26, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 87320.30, mes: 9, dayOfDebit: false },
+        { day: 27, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 95680.75, mes: 9, dayOfDebit: false },
+        { day: 28, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 103290.45, mes: 9, dayOfDebit: false },
+        { day: 29, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 89150.20, mes: 9, dayOfDebit: false },
+        { day: 30, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 76840.85, mes: 9, dayOfDebit: false }
+      ]
+    ]
+  ];
+
+  periodsData2: any[][] = [
+    // Período 1 (Setembro)
+    [
+      // Semana 1 de Setembro
+      [
+        { day: 1, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 2, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 3, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: true, usedValue: 67890.40, mes: 9, dayOfDebit: false },
+        { day: 4, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 5, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 6, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 7, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false }
+      ],
+      // Semana 2 de Setembro
+      [
+        { day: 8, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 45200.30, mes: 9, dayOfDebit: false },
+        { day: 9, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 52800.75, mes: 9, dayOfDebit: false },
+        { day: 10, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 11, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 38900.60, mes: 9, dayOfDebit: false },
+        { day: 12, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 71500.90, mes: 9, dayOfDebit: false },
+        { day: 13, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+        { day: 14, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false }
+      ]
+    ]
+  ];
+}
 
 bootstrapApplication(App);
