@@ -9,21 +9,23 @@ import { bootstrapApplication } from '@angular/platform-browser';
   template: `
     <div class="container" #container>
       <button 
+        *ngFor="let num of numbers; let i = index"
         class="trigger-btn"
+        [class.active]="activeTooltip === i"
+        (click)="toggleTooltip(i)"
+        [attr.aria-expanded]="activeTooltip === i"
+        [attr.aria-describedby]="activeTooltip === i ? 'tooltip-content-' + i : null"
+        (keydown.enter)="toggleTooltip(i)"
+        (keydown.space)="toggleTooltip(i)"
         #triggerButton
-        (click)="toggleTooltip()"
-        [attr.aria-expanded]="isOpen"
-        [attr.aria-describedby]="isOpen ? 'tooltip-content' : null"
-        (keydown.enter)="toggleTooltip()"
-        (keydown.space)="toggleTooltip()"
       >
-        1
+        {{ num }}
       </button>
 
       <div 
-        *ngIf="isOpen"
+        *ngIf="activeTooltip !== null"
         #tooltipContent
-        id="tooltip-content"
+        [id]="'tooltip-content-' + activeTooltip"
         class="tooltip"
         role="dialog"
         [attr.aria-modal]="true"
@@ -80,7 +82,7 @@ import { bootstrapApplication } from '@angular/platform-browser';
       </div>
 
       <div 
-        *ngIf="isOpen" 
+        *ngIf="activeTooltip !== null" 
         class="overlay" 
         (click)="closeTooltip()"
         aria-hidden="true"
@@ -105,10 +107,16 @@ import { bootstrapApplication } from '@angular/platform-browser';
       font-weight: bold;
       transition: all 0.2s;
       position: relative;
+      margin-right: 10px;
     }
 
     .trigger-btn:hover {
       background: #0056b3;
+    }
+
+    .trigger-btn.active {
+      background: #0056b3;
+      box-shadow: 0 0 0 2px #80bdff;
     }
 
     .trigger-btn:focus {
@@ -247,27 +255,29 @@ export class TooltipComponent implements AfterViewInit {
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
   @ViewChild('closeButton') closeButton!: ElementRef<HTMLButtonElement>;
 
-  isOpen = false;
+  numbers = [1, 2, 3];
+  activeTooltip: number | null = null;
   tooltipPosition = { top: 0, left: 0 };
+  activeTriggerButton!: ElementRef<HTMLButtonElement>;
 
   ngAfterViewInit() {
     // Componente inicializado, ViewChild disponível
   }
 
-  toggleTooltip() {
-    if (this.isOpen) {
+  toggleTooltip(index: number) {
+    if (this.activeTooltip === index) {
       this.closeTooltip();
     } else {
-      this.openTooltip();
+      this.openTooltip(index);
     }
   }
 
-  openTooltip() {
-    this.isOpen = true;
+  openTooltip(index: number) {
+    this.activeTooltip = index;
     
     // Calcula posição do tooltip
     setTimeout(() => {
-      this.calculateTooltipPosition();
+      this.calculateTooltipPosition(index);
     });
     
     // Focus management
@@ -282,25 +292,29 @@ export class TooltipComponent implements AfterViewInit {
   }
 
   closeTooltip() {
-    this.isOpen = false;
+    this.activeTooltip = null;
     
     // Remove listener do ESC
     document.removeEventListener('keydown', this.handleEscKey);
     
     // Retorna focus para o botão
     setTimeout(() => {
-      if (this.triggerButton?.nativeElement) {
-        this.triggerButton.nativeElement.focus();
+      if (this.activeTriggerButton?.nativeElement) {
+        this.activeTriggerButton.nativeElement.focus();
       }
     });
   }
 
-  private calculateTooltipPosition() {
-    if (!this.triggerButton?.nativeElement || !this.tooltipContent?.nativeElement || !this.container?.nativeElement) {
+  private calculateTooltipPosition(index: number) {
+    const triggerButtons = document.querySelectorAll('.trigger-btn');
+    const currentButton = triggerButtons[index] as HTMLButtonElement;
+    this.activeTriggerButton = new ElementRef(currentButton);
+    
+    if (!currentButton || !this.tooltipContent?.nativeElement || !this.container?.nativeElement) {
       return;
     }
 
-    const triggerRect = this.triggerButton.nativeElement.getBoundingClientRect();
+    const triggerRect = currentButton.getBoundingClientRect();
     const tooltipRect = this.tooltipContent.nativeElement.getBoundingClientRect();
     const containerRect = this.container.nativeElement.getBoundingClientRect();
     
