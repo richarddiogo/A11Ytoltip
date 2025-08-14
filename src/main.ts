@@ -9,23 +9,23 @@ import { bootstrapApplication } from '@angular/platform-browser';
   template: `
     <div class="container" #container>
       <button 
-        *ngFor="let num of numbers; let i = index"
+        *ngFor="let item of calendarData; let i = index"
         class="trigger-btn"
         [class.active]="activeTooltip === i"
         (click)="toggleTooltip(i)"
         [attr.aria-expanded]="activeTooltip === i"
-        [attr.aria-describedby]="activeTooltip === i ? 'tooltip-content-' + i : null"
+        [attr.aria-describedby]="activeTooltip === i ? 'tooltip-content-mes-' + item.mes + '-dia-' + item.dia : null"
         (keydown.enter)="toggleTooltip(i)"
         (keydown.space)="toggleTooltip(i)"
         #triggerButton
       >
-        {{ num }}
+        {{ item.dia }}
       </button>
 
       <div 
         *ngIf="activeTooltip !== null"
         #tooltipContent
-        [id]="'tooltip-content-' + activeTooltip"
+        [id]="'tooltip-content-mes-' + calendarData[activeTooltip].mes + '-dia-' + calendarData[activeTooltip].dia"
         class="tooltip"
         role="dialog"
         [attr.aria-modal]="true"
@@ -255,7 +255,13 @@ export class TooltipComponent implements AfterViewInit {
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
   @ViewChild('closeButton') closeButton!: ElementRef<HTMLButtonElement>;
 
-  numbers = [1, 2, 3];
+  // Simulando dados de 2 calendários com mês e dia
+  calendarData = [
+    { mes: 8, dia: 1 },
+    { mes: 8, dia: 2 },
+    { mes: 9, dia: 15 },
+    { mes: 12, dia: 1 }
+  ];
   activeTooltip: number | null = null;
   tooltipPosition = { top: 0, left: 0 };
   activeTriggerButton!: ElementRef<HTMLButtonElement>;
