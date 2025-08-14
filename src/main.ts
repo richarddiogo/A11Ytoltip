@@ -2,6 +2,17 @@ import { Component, ViewChild, ElementRef, AfterViewInit, Input } from '@angular
 import { CommonModule } from '@angular/common';
 import { bootstrapApplication } from '@angular/platform-browser';
 
+interface Day {
+  day: number;
+  ariaHidden: boolean;
+  currentPeriod?: boolean;
+  isDayUsed: boolean;
+  isToday: boolean;
+  usedValue: number | null;
+  mes: number;
+  dayOfDebit: boolean;
+}
+
 @Component({
   selector: 'app-tooltip',
   standalone: true,
@@ -20,32 +31,28 @@ import { bootstrapApplication } from '@angular/platform-browser';
         </div>
       </div>
 
-      <div *ngFor="let period of periods; let periodIndex = index" class="period-container">
-        <div *ngFor="let week of period; let weekIndex = index" class="week-days">
-          <span
-            *ngFor="let day of week; let dayIndex = index"
-            class="day-cell"
-            [class.day-used]="day.isDayUsed"
-            [class.day-today]="day.isToday"
-            [class.day-debit]="day.dayOfDebit"
-            (click)="day.isDayUsed ? toggleTooltip(periodIndex, weekIndex, dayIndex) : null"
-            [attr.aria-expanded]="isActiveTooltip(periodIndex, weekIndex, dayIndex)"
-            [attr.aria-describedby]="isActiveTooltip(periodIndex, weekIndex, dayIndex) ? 'tooltip-content-mes-' + day.mes + '-dia-' + day.day : null"
-            [attr.aria-hidden]="day.ariaHidden"
-            [attr.aria-label]="dayAriaLabel(day.day)"
-            [attr.role]="day.isDayUsed ? 'button' : 'text'"
-            [attr.tabindex]="day.isDayUsed ? '0' : '-1'"
-            (keydown.enter)="day.isDayUsed ? toggleTooltip(periodIndex, weekIndex, dayIndex) : null"
-            (keydown.space)="day.isDayUsed ? toggleTooltip(periodIndex, weekIndex, dayIndex) : null"
-          >
-            {{ day.day }}
-            <div *ngIf="day.isToday" class="today-border"></div>
-          </span>
+      <div *ngFor="let week of periods; let i = index" class="week-days" 
+           [ngStyle]="{'margin-bottom': '8px'}">
+        <div *ngFor="let day of week; let j = index" class="week-day-div trigger-btn"
+             [class.day-used]="day.isDayUsed"
+             [class.day-today]="day.isToday"
+             [class.day-debit]="day.dayOfDebit"
+             [attr.aria-expanded]="isActiveTooltip(i, j)"
+             [attr.aria-describedby]="isActiveTooltip(i, j) ? 'tooltip-content-mes-' + day.mes + '-dia-' + day.day : null"
+             [attr.aria-hidden]="day.ariaHidden"
+             [attr.aria-label]="dayAriaLabel(day.day)"
+             [attr.role]="day.isDayUsed ? 'button' : 'text'"
+             [attr.tabindex]="day.isDayUsed ? '0' : '-1'"
+             (click)="day.isDayUsed ? toggleTooltip(i, j) : null"
+             (keydown.enter)="day.isDayUsed ? toggleTooltip(i, j) : null"
+             (keydown.space)="day.isDayUsed ? toggleTooltip(i, j) : null">
+          {{ day.day }}
+          <div *ngIf="day.isToday" class="today-border"></div>
         </div>
       </div>
 
       <div 
-        *ngIf="activeTooltip.periodIndex !== null"
+        *ngIf="activeTooltip.weekIndex !== null && activeTooltip.dayIndex !== null"
         #tooltipContent
         [id]="'tooltip-content-mes-' + getActiveDay()?.mes + '-dia-' + getActiveDay()?.day"
         class="tooltip"
@@ -53,6 +60,8 @@ import { bootstrapApplication } from '@angular/platform-browser';
         [attr.aria-modal]="true"
         aria-labelledby="tooltip-title"
         (keydown.escape)="closeTooltip()"
+        (keydown)="onTooltipKeydown($event)"
+        tabindex="-1"
         [style.top.px]="tooltipPosition.top"
         [style.left.px]="tooltipPosition.left"
       >
@@ -63,48 +72,49 @@ import { bootstrapApplication } from '@angular/platform-browser';
             #closeButton
             (click)="closeTooltip()"
             aria-label="Fechar tooltip"
+            tabindex="0"
           >
             ×
           </button>
         </div>
         <div class="tooltip-content">
-          <div class="info-row">
+          <div class="info-row" tabindex="0" role="text" [attr.aria-label]="'Limite habilitado utilizado: R$ ' + (getActiveDay()?.usedValue?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00')">
             <span>Limite habilitado utilizado</span>
             <span class="value">R$ {{ getActiveDay()?.usedValue?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00' }}</span>
           </div>
-          <div class="info-row">
+          <div class="info-row" tabindex="0" role="text" [attr.aria-label]="'Utilização acima do limite: R$ 15.759,38'">
             <span>Utilização acima do limite</span>
             <span class="value">R$ 15.759,38</span>
           </div>
-          <div class="info-row">
+          <div class="info-row" tabindex="0" role="text" [attr.aria-label]="'Saldo devedor total: R$ 106.247,38'">
             <span>Saldo devedor total</span>
             <span class="value">R$ 106.247,38</span>
           </div>
           <hr>
-          <div class="info-row">
+          <div class="info-row" tabindex="0" role="text" [attr.aria-label]="'Juros limite da conta: R$ 666,85'">
             <span>Juros limite da conta</span>
             <span class="value">R$ 666,85</span>
           </div>
-          <div class="info-row">
+          <div class="info-row" tabindex="0" role="text" [attr.aria-label]="'IOF: R$ 59,77'">
             <span>IOF</span>
             <span class="value">R$ 59,77</span>
           </div>
-          <div class="info-row">
+          <div class="info-row" tabindex="0" role="text" [attr.aria-label]="'Juros de uso acima do limite: R$ 142,13'">
             <span>Juros de uso acima do limite</span>
             <span class="value">R$ 142,13</span>
           </div>
-          <div class="info-row">
+          <div class="info-row" tabindex="0" role="text" [attr.aria-label]="'Total de encargos: R$ 868,75'">
             <span>Total de encargos</span>
             <span class="value">R$ 868,75</span>
           </div>
-          <div class="update-info">
+          <div class="update-info" tabindex="0" role="text" [attr.aria-label]="'Atualizado: 6 de novembro'">
             Atualizado: 6 de novembro
           </div>
         </div>
       </div>
 
       <div 
-        *ngIf="activeTooltip.periodIndex !== null" 
+        *ngIf="activeTooltip.weekIndex !== null && activeTooltip.dayIndex !== null" 
         class="overlay" 
         (click)="closeTooltip()"
         aria-hidden="true"
@@ -135,17 +145,14 @@ import { bootstrapApplication } from '@angular/platform-browser';
       text-transform: lowercase;
     }
 
-    .period-container {
-      margin-bottom: 20px;
-    }
-
     .week-days {
       display: flex;
       gap: 8px;
       margin-bottom: 8px;
+      cursor: pointer;
     }
 
-    .day-cell {
+    .week-day-div {
       width: 40px;
       height: 40px;
       display: flex;
@@ -162,28 +169,28 @@ import { bootstrapApplication } from '@angular/platform-browser';
       user-select: none;
     }
 
-    .day-cell.day-used {
+    .week-day-div.day-used {
       background: #28a745;
       color: white;
       cursor: pointer;
     }
 
-    .day-cell.day-used:hover {
+    .week-day-div.day-used:hover {
       background: #218838;
     }
 
-    .day-cell.day-today {
+    .week-day-div.day-today {
       background: #007bff;
       color: white;
       font-weight: bold;
       cursor: pointer;
     }
 
-    .day-cell.day-today:hover {
+    .week-day-div.day-today:hover {
       background: #0056b3;
     }
 
-    .day-cell.day-debit {
+    .week-day-div.day-debit {
       text-decoration: underline;
     }
 
@@ -198,11 +205,11 @@ import { bootstrapApplication } from '@angular/platform-browser';
       pointer-events: none;
     }
 
-    .day-cell[aria-expanded="true"] {
+    .week-day-div[aria-expanded="true"] {
       box-shadow: 0 0 0 2px #80bdff;
     }
 
-    .day-cell[role="button"]:focus {
+    .week-day-div[role="button"]:focus {
       outline: 2px solid #80bdff;
       outline-offset: 2px;
     }
@@ -301,6 +308,13 @@ import { bootstrapApplication } from '@angular/platform-browser';
       color: #333;
     }
 
+    .info-row:focus {
+      outline: 2px solid #007bff;
+      outline-offset: 2px;
+      border-radius: 4px;
+      background-color: #f8f9fa;
+    }
+
     hr {
       border: none;
       border-top: 1px solid #f0f0f0;
@@ -314,6 +328,17 @@ import { bootstrapApplication } from '@angular/platform-browser';
       margin-top: 16px;
       padding-top: 12px;
       border-top: 1px solid #f0f0f0;
+    }
+
+    .update-info:focus {
+      outline: 2px solid #007bff;
+      outline-offset: 2px;
+      border-radius: 4px;
+      background-color: #f8f9fa;
+    }
+
+    .tooltip:focus {
+      outline: none;
     }
 
     /* Responsividade */
@@ -338,7 +363,7 @@ export class TooltipComponent implements AfterViewInit {
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
   @ViewChild('closeButton') closeButton!: ElementRef<HTMLButtonElement>;
 
-  @Input() periods: any[][] = [];
+  @Input() periods: Day[][] = [];
 
   weekNames: Array<{ name: string; abbreviation: string }> = [
     { name: 'Domingo', abbreviation: 'dom' },
@@ -351,7 +376,7 @@ export class TooltipComponent implements AfterViewInit {
   ];
 
   
-  activeTooltip = { periodIndex: null as number | null, weekIndex: null as number | null, dayIndex: null as number | null };
+  activeTooltip = { weekIndex: null as number | null, dayIndex: null as number | null };
   tooltipPosition = { top: 0, left: 0 };
   activeTriggerButton!: ElementRef<HTMLElement>;
 
@@ -359,25 +384,25 @@ export class TooltipComponent implements AfterViewInit {
     // Componente inicializado, ViewChild disponível
   }
 
-  public toggleTooltip(periodIndex: number, weekIndex: number, dayIndex: number) {
-    if (this.isActiveTooltip(periodIndex, weekIndex, dayIndex)) {
+  public getMarginStyle() {
+    return { 'margin-bottom': '8px' };
+  }
+
+  public toggleTooltip(weekIndex: number, dayIndex: number) {
+    if (this.isActiveTooltip(weekIndex, dayIndex)) {
       this.closeTooltip();
     } else {
-      this.openTooltip(periodIndex, weekIndex, dayIndex);
+      this.openTooltip(weekIndex, dayIndex);
     }
   }
 
-  public isActiveTooltip(periodIndex: number, weekIndex: number, dayIndex: number): boolean {
-    return this.activeTooltip.periodIndex === periodIndex && 
-           this.activeTooltip.weekIndex === weekIndex && 
-           this.activeTooltip.dayIndex === dayIndex;
+  public isActiveTooltip(weekIndex: number, dayIndex: number): boolean {
+    return this.activeTooltip.weekIndex === weekIndex && this.activeTooltip.dayIndex === dayIndex;
   }
 
-  public getActiveDay() {
-    if (this.activeTooltip.periodIndex !== null && 
-        this.activeTooltip.weekIndex !== null && 
-        this.activeTooltip.dayIndex !== null) {
-      return this.periods[this.activeTooltip.periodIndex][this.activeTooltip.weekIndex][this.activeTooltip.dayIndex];
+  public getActiveDay(): Day | null {
+    if (this.activeTooltip.weekIndex !== null) {
+      return this.periods[this.activeTooltip.weekIndex][this.activeTooltip.dayIndex!];
     }
     return null;
   }
@@ -386,18 +411,18 @@ export class TooltipComponent implements AfterViewInit {
     return `Day ${day}`;
   }
 
-  public openTooltip(periodIndex: number, weekIndex: number, dayIndex: number) {
-    this.activeTooltip = { periodIndex, weekIndex, dayIndex };
+  public openTooltip(weekIndex: number, dayIndex: number) {
+    this.activeTooltip = { weekIndex, dayIndex };
     
     // Calcula posição do tooltip
     setTimeout(() => {
-      this.calculateTooltipPosition(periodIndex, weekIndex, dayIndex);
+      this.calculateTooltipPosition(weekIndex, dayIndex);
     });
     
     // Focus management
     setTimeout(() => {
-      if (this.closeButton?.nativeElement) {
-        this.closeButton.nativeElement.focus();
+      if (this.tooltipContent?.nativeElement) {
+        this.tooltipContent.nativeElement.focus();
       }
     }, 100);
     
@@ -406,7 +431,7 @@ export class TooltipComponent implements AfterViewInit {
   }
 
   public closeTooltip() {
-    this.activeTooltip = { periodIndex: null, weekIndex: null, dayIndex: null };
+    this.activeTooltip = { weekIndex: null, dayIndex: null };
     
     // Remove listener do ESC
     document.removeEventListener('keydown', this.handleEscKey);
@@ -419,23 +444,15 @@ export class TooltipComponent implements AfterViewInit {
     });
   }
 
-  private calculateTooltipPosition(periodIndex: number, weekIndex: number, dayIndex: number) {
+  private calculateTooltipPosition(weekIndex: number, dayIndex: number) {
     // Find the correct button within THIS specific tooltip component instance
-    const dayCellsInComponent = this.container.nativeElement.querySelectorAll('.day-cell');
+    const weekDivs = this.container.nativeElement.querySelectorAll('.week-days');
+    const targetWeekDiv = weekDivs[weekIndex];
     
-    // Calculate the correct index for the clicked day
-    let dayIndex_calculated = 0;
-    for (let p = 0; p < periodIndex; p++) {
-      for (let w = 0; w < this.periods[p].length; w++) {
-        dayIndex_calculated += this.periods[p][w].length;
-      }
-    }
-    for (let w = 0; w < weekIndex; w++) {
-      dayIndex_calculated += this.periods[periodIndex][w].length;
-    }
-    dayIndex_calculated += dayIndex;
+    if (!targetWeekDiv) return;
     
-    const currentButton = dayCellsInComponent[dayIndex_calculated] as HTMLElement;
+    const dayDivs = targetWeekDiv.querySelectorAll('.week-day-div');
+    const currentButton = dayDivs[dayIndex] as HTMLElement;
     
     this.activeTriggerButton = new ElementRef(currentButton);
     
@@ -458,6 +475,47 @@ export class TooltipComponent implements AfterViewInit {
       this.closeTooltip();
     }
   }
+
+  public onTooltipKeydown = (event: KeyboardEvent) => {
+    const focusableElements = this.tooltipContent.nativeElement.querySelectorAll(
+      'button, [tabindex="0"]'
+    );
+    const focusableArray = Array.from(focusableElements) as HTMLElement[];
+    const currentIndex = focusableArray.indexOf(document.activeElement as HTMLElement);
+
+    switch (event.key) {
+      case 'Tab':
+        event.preventDefault();
+        if (event.shiftKey) {
+          // Shift + Tab - navegar para trás
+          const prevIndex = currentIndex <= 0 ? focusableArray.length - 1 : currentIndex - 1;
+          focusableArray[prevIndex].focus();
+        } else {
+          // Tab - navegar para frente
+          const nextIndex = currentIndex >= focusableArray.length - 1 ? 0 : currentIndex + 1;
+          focusableArray[nextIndex].focus();
+        }
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        const nextDownIndex = currentIndex >= focusableArray.length - 1 ? 0 : currentIndex + 1;
+        focusableArray[nextDownIndex].focus();
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        const prevUpIndex = currentIndex <= 0 ? focusableArray.length - 1 : currentIndex - 1;
+        focusableArray[prevUpIndex].focus();
+        break;
+      case 'Home':
+        event.preventDefault();
+        focusableArray[0].focus();
+        break;
+      case 'End':
+        event.preventDefault();
+        focusableArray[focusableArray.length - 1].focus();
+        break;
+    }
+  };
 }
 
 @Component({
@@ -528,78 +586,49 @@ export class TooltipComponent implements AfterViewInit {
   `]
 })
 export class App {
-  periodsData: any[][] = [
-    // Período 1 (Agosto)
+  periodsData: Day[][] = [
+    // Semana 1 de Agosto
     [
-      // Semana 1 de Agosto
-      [
-        { day: 1, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
-        { day: 2, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
-        { day: 3, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 85420.50, mes: 8, dayOfDebit: false },
-        { day: 4, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 92150.75, mes: 8, dayOfDebit: false },
-        { day: 5, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 78900.25, mes: 8, dayOfDebit: false },
-        { day: 6, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
-        { day: 7, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false }
-      ],
-      // Semana 2 de Agosto
-      [
-        { day: 8, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
-        { day: 9, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
-        { day: 10, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 67890.40, mes: 8, dayOfDebit: false },
-        { day: 11, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
-        { day: 12, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
-        { day: 13, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
-        { day: 14, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 105200.80, mes: 8, dayOfDebit: true }
-      ]
+      { day: 1, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+      { day: 2, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+      { day: 3, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 85420.50, mes: 8, dayOfDebit: false },
+      { day: 4, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 92150.75, mes: 8, dayOfDebit: false },
+      { day: 5, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 78900.25, mes: 8, dayOfDebit: false },
+      { day: 6, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+      { day: 7, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false }
     ],
-    // Período 2 (Setembro)
+    // Semana 2 de Agosto
     [
-      // Semana 1 de Setembro
-      [
-        { day: 1, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 2, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 3, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: true, usedValue: 67890.40, mes: 9, dayOfDebit: false },
-        { day: 4, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 5, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 6, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 7, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false }
-      ],
-      // Semana 4 de Setembro (final do mês)
-      [
-        { day: 24, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 112450.90, mes: 9, dayOfDebit: false },
-        { day: 25, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 98750.60, mes: 9, dayOfDebit: false },
-        { day: 26, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 87320.30, mes: 9, dayOfDebit: false },
-        { day: 27, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 95680.75, mes: 9, dayOfDebit: false },
-        { day: 28, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 103290.45, mes: 9, dayOfDebit: false },
-        { day: 29, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 89150.20, mes: 9, dayOfDebit: false },
-        { day: 30, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 76840.85, mes: 9, dayOfDebit: false }
-      ]
+      { day: 8, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+      { day: 9, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+      { day: 10, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 67890.40, mes: 8, dayOfDebit: false },
+      { day: 11, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+      { day: 12, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+      { day: 13, ariaHidden: false, currentPeriod: false, isDayUsed: false, isToday: false, usedValue: null, mes: 8, dayOfDebit: false },
+      { day: 14, ariaHidden: false, currentPeriod: false, isDayUsed: true, isToday: false, usedValue: 105200.80, mes: 8, dayOfDebit: true }
     ]
   ];
 
-  periodsData2: any[][] = [
-    // Período 1 (Setembro)
+  periodsData2: Day[][] = [
+    // Semana 1 de Setembro
     [
-      // Semana 1 de Setembro
-      [
-        { day: 1, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 2, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 3, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: true, usedValue: 67890.40, mes: 9, dayOfDebit: false },
-        { day: 4, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 5, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 6, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 7, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false }
-      ],
-      // Semana 2 de Setembro
-      [
-        { day: 8, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 45200.30, mes: 9, dayOfDebit: false },
-        { day: 9, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 52800.75, mes: 9, dayOfDebit: false },
-        { day: 10, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 11, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 38900.60, mes: 9, dayOfDebit: false },
-        { day: 12, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 71500.90, mes: 9, dayOfDebit: false },
-        { day: 13, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
-        { day: 14, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false }
-      ]
+      { day: 1, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+      { day: 2, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+      { day: 3, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: true, usedValue: 67890.40, mes: 9, dayOfDebit: false },
+      { day: 4, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+      { day: 5, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+      { day: 6, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+      { day: 7, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false }
+    ],
+    // Semana 2 de Setembro
+    [
+      { day: 8, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 45200.30, mes: 9, dayOfDebit: false },
+      { day: 9, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 52800.75, mes: 9, dayOfDebit: false },
+      { day: 10, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+      { day: 11, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 38900.60, mes: 9, dayOfDebit: false },
+      { day: 12, ariaHidden: false, currentPeriod: true, isDayUsed: true, isToday: false, usedValue: 71500.90, mes: 9, dayOfDebit: false },
+      { day: 13, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false },
+      { day: 14, ariaHidden: false, currentPeriod: true, isDayUsed: false, isToday: false, usedValue: null, mes: 9, dayOfDebit: false }
     ]
   ];
 }
